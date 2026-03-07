@@ -1,0 +1,40 @@
+# Environment — never commit real keys
+.env
+
+# Pipeline outputs — generated at runtime, not tracked
+outputs/
+!outputs/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Editors
+.idea/
+.vscode/
+*.iml
+
+# Jupyter
+.ipynb_checkpoints/

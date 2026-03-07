@@ -1,0 +1,3 @@
+[submodule "jailbreakbench"]
+	path = jailbreakbench
+	url = https://github.com/JailbreakBench/jailbreakbench.git
