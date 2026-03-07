@@ -1,6 +1,6 @@
 # Model identifiers
-ATTACKER_MODEL = "together_ai/google/gemma-3n-E4B-it"
-TARGET_MODEL = "together_ai/meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
+ATTACKER_MODEL = "hf_local:Qwen/Qwen2.5-3B-Instruct"
+TARGET_MODEL = "hf_local:Qwen/Qwen2.5-3B-Instruct"
 JUDGE_MODEL = "gpt-4o-mini"
 FEEDBACK_MODEL = "gpt-4o-mini"
 

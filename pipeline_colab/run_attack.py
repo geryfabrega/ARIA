@@ -67,11 +67,9 @@ def record_to_row(r: CycleRecord) -> dict:
 def main() -> None:
     load_dotenv()
 
-    together_api_key = os.environ.get("TOGETHERAI_API_KEY")
+    model_api_key = os.environ.get("MODEL_API_KEY", os.environ.get("TOGETHERAI_API_KEY", ""))
     openai_api_key = os.environ.get("OPENAI_API_KEY")
 
-    if not together_api_key:
-        sys.exit("Error: TOGETHERAI_API_KEY not set in environment or .env file.")
     if not openai_api_key:
         sys.exit("Error: OPENAI_API_KEY not set in environment or .env file.")
 
@@ -96,7 +94,7 @@ def main() -> None:
                 records = run_behavior(
                     goal=goal,
                     behavior=behavior,
-                    together_api_key=together_api_key,
+                    model_api_key=model_api_key,
                     openai_api_key=openai_api_key,
                     max_cycles=args.max_cycles,
                 )

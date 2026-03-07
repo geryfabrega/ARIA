@@ -70,8 +70,8 @@ def _record_to_row(record: CycleRecord) -> dict:
 
 
 def run_attack_workflow(
-    together_api_key: str,
     openai_api_key: str,
+    model_api_key: str = "",
     behaviors: int = DEFAULT_BEHAVIORS,
     max_cycles: int = MAX_CYCLES,
     output: str = OUTPUT_CSV,
@@ -80,8 +80,6 @@ def run_attack_workflow(
 
     Returns the output CSV path.
     """
-    if not together_api_key:
-        raise ValueError("together_api_key is required")
     if not openai_api_key:
         raise ValueError("openai_api_key is required")
 
@@ -109,7 +107,7 @@ def run_attack_workflow(
                 records = run_behavior(
                     goal=goal,
                     behavior=behavior,
-                    together_api_key=together_api_key,
+                    model_api_key=model_api_key,
                     openai_api_key=openai_api_key,
                     max_cycles=max_cycles,
                 )

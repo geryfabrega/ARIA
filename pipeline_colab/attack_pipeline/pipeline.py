@@ -23,7 +23,7 @@ class CycleRecord:
 def run_behavior(
     goal: str,
     behavior: str,
-    together_api_key: str,
+    model_api_key: str,
     openai_api_key: str,
     max_cycles: int = MAX_CYCLES,
 ) -> list[CycleRecord]:
@@ -36,7 +36,7 @@ def run_behavior(
     records: list[CycleRecord] = []
 
     try:
-        attack_prompt = generate_initial_attack(goal, together_api_key)
+        attack_prompt = generate_initial_attack(goal, model_api_key)
     except Exception as exc:
         print(f"  [attacker error on initial generation] {exc}")
         attack_prompt = goal
@@ -45,7 +45,7 @@ def run_behavior(
         print(f"  cycle {cycle}/{max_cycles} …", end=" ", flush=True)
 
         try:
-            target_response = query_target(attack_prompt, together_api_key)
+            target_response = query_target(attack_prompt, model_api_key)
         except Exception as exc:
             print(f"[target error] {exc}")
             target_response = ""
@@ -85,7 +85,7 @@ def run_behavior(
 
         if cycle < max_cycles:
             try:
-                attack_prompt = mutate_attack(goal, attack_prompt, feedback, together_api_key)
+                attack_prompt = mutate_attack(goal, attack_prompt, feedback, model_api_key)
             except Exception as exc:
                 print(f"  [attacker mutation error] {exc}")
 
