@@ -15,7 +15,13 @@ import sys
 from dotenv import load_dotenv
 
 import jailbreakbench as jbb
-from attack_pipeline.config import DEFAULT_BEHAVIORS, MAX_CYCLES, OUTPUT_CSV
+from attack_pipeline.config import (
+    DEFAULT_BEHAVIORS,
+    FINAL_PROMPTS_CSV,
+    MAX_CYCLES,
+    OUTPUT_CSV,
+    validate_attack_workflow_models,
+)
 from attack_pipeline.pipeline import CycleRecord, run_behavior
 
 CSV_COLUMNS = [
@@ -26,6 +32,15 @@ CSV_COLUMNS = [
     "jailbroken",
     "judge_reason",
     "feedback",
+]
+
+FINAL_PROMPT_COLUMNS = [
+    "behavior",
+    "goal",
+    "final_cycle",
+    "final_attack_prompt",
+    "final_jailbroken",
+    "final_judge_reason",
 ]
 
 
@@ -49,6 +64,12 @@ def parse_args() -> argparse.Namespace:
         default=OUTPUT_CSV,
         help=f"Output CSV path (default: {OUTPUT_CSV})",
     )
+    parser.add_argument(
+        "--final-prompts-output",
+        type=str,
+        default=FINAL_PROMPTS_CSV,
+        help=f"Final prompts CSV path (default: {FINAL_PROMPTS_CSV})",
+    )
     return parser.parse_args()
 
 
@@ -67,7 +88,8 @@ def record_to_row(r: CycleRecord) -> dict:
 def main() -> None:
     load_dotenv()
 
-    model_api_key = os.environ.get("MODEL_API_KEY", os.environ.get("TOGETHERAI_API_KEY", ""))
+    validate_attack_workflow_models()
+    model_api_key = os.environ.get("MODEL_API_KEY", "")
     openai_api_key = os.environ.get("OPENAI_API_KEY")
 
     if not openai_api_key:
@@ -81,12 +103,19 @@ def main() -> None:
 
     print(f"Running pipeline on {len(behaviors)} behavior(s), max {args.max_cycles} cycle(s) each.")
     print(f"Output → {args.output}\n")
+    print(f"Final prompts output → {args.final_prompts_output}\n")
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
+    os.makedirs(os.path.dirname(args.final_prompts_output) or ".", exist_ok=True)
 
-    with open(args.output, "w", newline="", encoding="utf-8") as csvfile:
+    with (
+        open(args.output, "w", newline="", encoding="utf-8") as csvfile,
+        open(args.final_prompts_output, "w", newline="", encoding="utf-8") as final_csvfile,
+    ):
         writer = csv.DictWriter(csvfile, fieldnames=CSV_COLUMNS)
+        final_writer = csv.DictWriter(final_csvfile, fieldnames=FINAL_PROMPT_COLUMNS)
         writer.writeheader()
+        final_writer.writeheader()
 
         for i, (behavior, goal) in enumerate(zip(behaviors, goals), start=1):
             print(f"[{i}/{len(behaviors)}] {behavior}")
@@ -107,10 +136,23 @@ def main() -> None:
             csvfile.flush()  # ensure partial results survive crashes
 
             final = records[-1]
+            final_writer.writerow(
+                {
+                    "behavior": behavior,
+                    "goal": goal,
+                    "final_cycle": final.cycle,
+                    "final_attack_prompt": final.attack_prompt,
+                    "final_jailbroken": final.jailbroken,
+                    "final_judge_reason": final.judge_reason,
+                }
+            )
+            final_csvfile.flush()
+
             status = "SUCCESS" if final.jailbroken else "failed"
             print(f"  → {status} after {len(records)} cycle(s)\n")
 
     print(f"Done. Results saved to {args.output}")
+    print(f"Final prompts saved to {args.final_prompts_output}")
 
 
 if __name__ == "__main__":

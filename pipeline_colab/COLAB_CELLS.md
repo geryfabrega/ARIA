@@ -16,13 +16,25 @@ Option A (recommended): clone your repo.
 
 Option B: if you uploaded a zip, unpack and `cd` into the project root where `pipeline_colab/` exists.
 
-## Cell 3: API keys
+## Cell 3: API keys + local model download
 ```python
 import os
 from getpass import getpass
+from huggingface_hub import snapshot_download
 
-os.environ["TOGETHERAI_API_KEY"] = getpass("TOGETHERAI_API_KEY: ")
+os.environ["HF_TOKEN"] = getpass("HF_TOKEN (for model download): ")
 os.environ["OPENAI_API_KEY"] = getpass("OPENAI_API_KEY: ")
+
+ATTACKER_MODEL_ID = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+TARGET_MODEL_ID = "Qwen/Qwen2.5-3B-Instruct"
+os.environ["ATTACKER_MODEL_ID"] = ATTACKER_MODEL_ID
+os.environ["TARGET_MODEL_ID"] = TARGET_MODEL_ID
+
+print(f"Downloading attacker model: {ATTACKER_MODEL_ID} ...")
+snapshot_download(repo_id=ATTACKER_MODEL_ID, token=os.environ["HF_TOKEN"])
+print(f"Downloading target model: {TARGET_MODEL_ID} ...")
+snapshot_download(repo_id=TARGET_MODEL_ID, token=os.environ["HF_TOKEN"])
+print("Model downloads complete.")
 ```
 
 ## Cell 4: Run attack pipeline (function-style)
@@ -34,9 +46,12 @@ import sys
 sys.path.insert(0, "/content/ARIA/pipeline_colab")
 
 from pipeline_colab.colab_workflows import run_attack_workflow
+import attack_pipeline.config as attack_config
+
+attack_config.ATTACKER_MODEL = f"hf_local:{os.environ['ATTACKER_MODEL_ID']}"
+attack_config.TARGET_MODEL = f"hf_local:{os.environ['TARGET_MODEL_ID']}"
 
 attack_csv = run_attack_workflow(
-    together_api_key=os.environ["TOGETHERAI_API_KEY"],
     openai_api_key=os.environ["OPENAI_API_KEY"],
     behaviors=10,
     max_cycles=3,

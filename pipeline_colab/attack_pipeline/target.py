@@ -1,4 +1,4 @@
-"""Target model: Llama 3.1 8B Instruct via Together AI."""
+"""Target model query helper for local HF chat models."""
 
 from .config import TARGET_MAX_TOKENS, TARGET_MODEL, TARGET_TEMPERATURE
 from .models import call_model

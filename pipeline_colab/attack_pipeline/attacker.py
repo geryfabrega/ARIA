@@ -1,4 +1,4 @@
-"""Attack-prompt generator using Gemma 3 Instruct via Together AI."""
+"""Attack-prompt generator for local HF chat models."""
 
 from .config import (
     ATTACKER_MAX_TOKENS,

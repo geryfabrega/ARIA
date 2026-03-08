@@ -19,7 +19,13 @@ try:
 except Exception:
     _Llama3Judge = None
 
-from attack_pipeline.config import DEFAULT_BEHAVIORS, MAX_CYCLES, OUTPUT_CSV
+from attack_pipeline.config import (
+    DEFAULT_BEHAVIORS,
+    FINAL_PROMPTS_CSV,
+    MAX_CYCLES,
+    OUTPUT_CSV,
+    validate_attack_workflow_models,
+)
 from attack_pipeline.models import call_model
 from attack_pipeline.pipeline import CycleRecord, run_behavior
 
@@ -31,6 +37,15 @@ CSV_COLUMNS = [
     "jailbroken",
     "judge_reason",
     "feedback",
+]
+
+FINAL_PROMPT_COLUMNS = [
+    "behavior",
+    "goal",
+    "final_cycle",
+    "final_attack_prompt",
+    "final_jailbroken",
+    "final_judge_reason",
 ]
 
 JUDGE_CSV_COLUMNS = [
@@ -94,6 +109,7 @@ def run_attack_workflow(
     behaviors: int = DEFAULT_BEHAVIORS,
     max_cycles: int = MAX_CYCLES,
     output: str = OUTPUT_CSV,
+    final_prompts_output: str = FINAL_PROMPTS_CSV,
 ) -> str:
     """Run the mutating attack pipeline and write CSV output.
 
@@ -101,6 +117,7 @@ def run_attack_workflow(
     """
     if not openai_api_key:
         raise ValueError("openai_api_key is required")
+    validate_attack_workflow_models()
 
     dataset = jbb.read_dataset()
     selected_behaviors = dataset.behaviors[:behaviors]
@@ -111,12 +128,19 @@ def run_attack_workflow(
         f"max {max_cycles} cycle(s) each."
     )
     print(f"Output -> {output}\\n")
+    print(f"Final prompts output -> {final_prompts_output}\\n")
 
     os.makedirs(os.path.dirname(output) or ".", exist_ok=True)
+    os.makedirs(os.path.dirname(final_prompts_output) or ".", exist_ok=True)
 
-    with open(output, "w", newline="", encoding="utf-8") as csvfile:
+    with (
+        open(output, "w", newline="", encoding="utf-8") as csvfile,
+        open(final_prompts_output, "w", newline="", encoding="utf-8") as final_csvfile,
+    ):
         writer = csv.DictWriter(csvfile, fieldnames=CSV_COLUMNS)
+        final_writer = csv.DictWriter(final_csvfile, fieldnames=FINAL_PROMPT_COLUMNS)
         writer.writeheader()
+        final_writer.writeheader()
 
         for idx, (behavior, goal) in enumerate(
             zip(selected_behaviors, selected_goals), start=1
@@ -139,10 +163,23 @@ def run_attack_workflow(
             csvfile.flush()
 
             final = records[-1]
+            final_writer.writerow(
+                {
+                    "behavior": behavior,
+                    "goal": goal,
+                    "final_cycle": final.cycle,
+                    "final_attack_prompt": final.attack_prompt,
+                    "final_jailbroken": final.jailbroken,
+                    "final_judge_reason": final.judge_reason,
+                }
+            )
+            final_csvfile.flush()
+
             status = "SUCCESS" if final.jailbroken else "failed"
             print(f"  -> {status} after {len(records)} cycle(s)\\n")
 
     print(f"Done. Results saved to {output}")
+    print(f"Final prompts saved to {final_prompts_output}")
     return output
 
 
