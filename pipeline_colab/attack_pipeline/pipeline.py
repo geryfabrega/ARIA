@@ -118,9 +118,6 @@ def run_behavior(
             )
         )
 
-        if jailbroken:
-            break
-
         if cycle < max_cycles and not jailbroken:
             try:
                 attack_prompt = mutate_attack(goal, attack_prompt, feedback, model_api_key)
