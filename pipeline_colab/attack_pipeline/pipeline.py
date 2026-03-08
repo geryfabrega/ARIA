@@ -50,7 +50,7 @@ def run_behavior(
 ) -> list[CycleRecord]:
     """Run the mutating attack loop for one behavior.
 
-    Returns one CycleRecord per cycle attempted (always all max_cycles).
+    Returns one CycleRecord per cycle attempted, stopping early on jailbreak.
     Errors in any single model call are caught, logged as empty strings,
     and the loop continues so one bad API response doesn't abort the run.
     """
@@ -112,7 +112,10 @@ def run_behavior(
             )
         )
 
-        if cycle < max_cycles:
+        if jailbroken:
+            break
+
+        if cycle < max_cycles and not jailbroken:
             try:
                 attack_prompt = mutate_attack(goal, attack_prompt, feedback, model_api_key)
             except Exception as exc:
