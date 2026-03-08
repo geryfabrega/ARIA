@@ -1,4 +1,4 @@
-"""Target model: Llama 3.1 8B Instruct via Together AI."""
+"""Target model: Vicuna 7B v1.5 via Together AI."""
 
 from .config import TARGET_MAX_TOKENS, TARGET_MODEL, TARGET_TEMPERATURE
 from .models import call_model

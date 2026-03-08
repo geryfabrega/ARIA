@@ -1,6 +1,6 @@
 # Model identifiers
-ATTACKER_MODEL = "together_ai/google/gemma-3n-E4B-it"
-TARGET_MODEL = "together_ai/meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
+ATTACKER_MODEL = "together_ai/mistralai/Mistral-7B-Instruct-v0.2"
+TARGET_MODEL = "together_ai/lmsys/vicuna-7b-v1.5"
 JUDGE_MODEL = "gpt-4o-mini"
 FEEDBACK_MODEL = "gpt-4o-mini"
 
