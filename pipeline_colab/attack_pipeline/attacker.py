@@ -66,6 +66,23 @@ def _clean_attack_prompt(raw: str, fallback: str) -> str:
         # send scaffold to target.
         return fallback
 
+    # Meta-commentary: model wrote *about* the prompt ("To respond to the feedback...",
+    # "For example:", "This revised prompt encourages") instead of the prompt itself.
+    # Don't send that to the target—try to extract a quoted prompt or use fallback.
+    meta_markers = (
+        "to respond to the feedback",
+        "for example:",
+        "this revised prompt",
+        "you may modify the original",
+        "you may modify the",
+    )
+    if any(m in lower for m in meta_markers):
+        # Try to extract the first substantial quoted string (the actual prompt).
+        match = re.search(r'"([^"]{20,})"', text)
+        if match:
+            return match.group(1).strip()
+        return fallback
+
     return text.strip() or fallback
 
 
