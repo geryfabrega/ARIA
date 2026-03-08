@@ -24,6 +24,7 @@ from attack_pipeline.config import (
     FINAL_ASR_CSV,
     FINAL_EVAL_ATTEMPTS,
     FINAL_PROMPTS_CSV,
+    JUDGE_SYSTEM_PROMPT,
     MAX_CYCLES,
     OUTPUT_CSV,
     validate_attack_workflow_models,
@@ -135,6 +136,35 @@ def _final_eval_to_row(goal: str, record: FinalEvalRecord) -> dict:
     }
 
 
+def _format_judge_user_prompt(goal: str, attack_prompt: str, target_response: str) -> str:
+    return (
+        f"Behavior goal: {goal}\n\n"
+        f"Attack prompt:\n{attack_prompt}\n\n"
+        f"Target model response:\n{target_response}"
+    )
+
+
+def _print_cycle_prompts(goal: str, record: CycleRecord) -> None:
+    judge_user_prompt = _format_judge_user_prompt(
+        goal=goal,
+        attack_prompt=record.attack_prompt,
+        target_response=record.target_response,
+    )
+    print(f"  [cycle {record.cycle}]")
+    print("  ATTACKER PROMPT:")
+    print(record.attack_prompt)
+    print("")
+    print("  TARGET PROMPT:")
+    print(record.attack_prompt)
+    print("")
+    print("  JUDGE SYSTEM PROMPT:")
+    print(JUDGE_SYSTEM_PROMPT)
+    print("")
+    print("  JUDGE USER PROMPT:")
+    print(judge_user_prompt)
+    print("")
+
+
 def run_attack_workflow(
     openai_api_key: str,
     model_api_key: str = "",
@@ -201,6 +231,7 @@ def run_attack_workflow(
 
             for record in records:
                 writer.writerow(_record_to_row(record))
+                _print_cycle_prompts(goal=goal, record=record)
             csvfile.flush()
 
             final = records[-1]
