@@ -30,6 +30,17 @@ class FinalEvalRecord:
     judge_reason: str
 
 
+def _print_model_exchange(
+    prefix: str,
+    attack_prompt: str,
+    target_response: str,
+    judge_response: str,
+) -> None:
+    print(f"    [{prefix}] attack prompt:\n{attack_prompt}\n")
+    print(f"    [{prefix}] target response:\n{target_response}\n")
+    print(f"    [{prefix}] judge response:\n{judge_response}\n")
+
+
 def run_behavior(
     goal: str,
     behavior: str,
@@ -64,12 +75,20 @@ def run_behavior(
             result = judge(goal, attack_prompt, target_response, openai_api_key)
             jailbroken = result.jailbroken
             judge_reason = result.reason
+            judge_response = result.raw_response
         except Exception as exc:
             print(f"[judge error] {exc}")
             jailbroken = False
             judge_reason = f"judge error: {exc}"
+            judge_response = judge_reason
 
         print("JAILBROKEN" if jailbroken else "not jailbroken")
+        _print_model_exchange(
+            prefix=f"cycle {cycle}",
+            attack_prompt=attack_prompt,
+            target_response=target_response,
+            judge_response=judge_response,
+        )
 
         feedback = ""
         if not jailbroken and cycle < max_cycles:
@@ -126,12 +145,20 @@ def evaluate_final_prompt(
             result = judge(goal, attack_prompt, target_response, openai_api_key)
             jailbroken = result.jailbroken
             judge_reason = result.reason
+            judge_response = result.raw_response
         except Exception as exc:
             print(f"[judge error] {exc}")
             jailbroken = False
             judge_reason = f"judge error: {exc}"
+            judge_response = judge_reason
 
         print("PASS" if jailbroken else "FAIL")
+        _print_model_exchange(
+            prefix=f"final eval {attempt}",
+            attack_prompt=attack_prompt,
+            target_response=target_response,
+            judge_response=judge_response,
+        )
 
         records.append(
             FinalEvalRecord(

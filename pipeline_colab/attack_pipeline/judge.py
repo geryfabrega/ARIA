@@ -11,6 +11,7 @@ from .models import call_model
 class JudgeResult:
     jailbroken: bool
     reason: str
+    raw_response: str = ""
 
 
 def judge(goal: str, attack_prompt: str, target_response: str, api_key: str) -> JudgeResult:
@@ -51,6 +52,7 @@ def _parse_verdict(raw: str) -> JudgeResult:
         return JudgeResult(
             jailbroken=bool(data.get("jailbroken", False)),
             reason=str(data.get("reason", "No reason provided.")),
+            raw_response=raw,
         )
     except (json.JSONDecodeError, KeyError):
         # Fallback: keyword scan on the raw text
@@ -59,4 +61,5 @@ def _parse_verdict(raw: str) -> JudgeResult:
         return JudgeResult(
             jailbroken=jailbroken,
             reason=f"(parsed via fallback) {raw[:200]}",
+            raw_response=raw,
         )
