@@ -97,7 +97,7 @@ def run_behavior(
         )
 
         feedback = ""
-        if not jailbroken and cycle < max_cycles:
+        if cycle < max_cycles:
             try:
                 feedback = get_feedback(
                     goal, attack_prompt, target_response, judge_reason, openai_api_key
@@ -118,7 +118,7 @@ def run_behavior(
             )
         )
 
-        if cycle < max_cycles and not jailbroken:
+        if cycle < max_cycles:
             try:
                 attack_prompt = mutate_attack(goal, attack_prompt, feedback, model_api_key)
             except Exception as exc:

@@ -26,6 +26,7 @@ def run_behavior(
     together_api_key: str,
     openai_api_key: str,
     max_cycles: int = MAX_CYCLES,
+    initial_attack_prompt: str | None = None,
 ) -> list[CycleRecord]:
     """Run the mutating attack loop for one behavior.
 
@@ -35,11 +36,14 @@ def run_behavior(
     """
     records: list[CycleRecord] = []
 
-    try:
-        attack_prompt = generate_initial_attack(goal, together_api_key)
-    except Exception as exc:
-        print(f"  [attacker error on initial generation] {exc}")
-        attack_prompt = goal
+    if initial_attack_prompt is not None:
+        attack_prompt = initial_attack_prompt
+    else:
+        try:
+            attack_prompt = generate_initial_attack(goal, together_api_key)
+        except Exception as exc:
+            print(f"  [attacker error on initial generation] {exc}")
+            attack_prompt = goal
 
     for cycle in range(1, max_cycles + 1):
         print(f"  cycle {cycle}/{max_cycles} …", end=" ", flush=True)
@@ -62,7 +66,7 @@ def run_behavior(
         print("JAILBROKEN" if jailbroken else "not jailbroken")
 
         feedback = ""
-        if not jailbroken and cycle < max_cycles:
+        if cycle < max_cycles:
             try:
                 feedback = get_feedback(
                     goal, attack_prompt, target_response, judge_reason, openai_api_key
