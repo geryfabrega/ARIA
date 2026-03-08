@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 import hashlib
 
-from .attacker import generate_initial_attack, mutate_attack
+from .attacker import generate_initial_attack, mutate_attack, paraphrase_prompt
 from .config import FINAL_EVAL_ATTEMPTS, MAX_CYCLES
 from .feedback import get_feedback
 from .judge import judge
@@ -177,6 +177,9 @@ def run_behavior(
                     next_prompt = mutate_attack(
                         goal, previous_prompt, stronger_feedback, model_api_key
                     )
+                # If still identical (e.g. cleaner returned fallback), force a paraphrase.
+                if next_prompt.strip() == previous_prompt.strip():
+                    next_prompt = paraphrase_prompt(previous_prompt, model_api_key)
                 attack_prompt = next_prompt
                 _debug_prompt(
                     f"post-mutation cycle {cycle}",
