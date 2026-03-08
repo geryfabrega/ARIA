@@ -21,13 +21,20 @@ except Exception:
 
 from attack_pipeline.config import (
     DEFAULT_BEHAVIORS,
+    FINAL_ASR_CSV,
+    FINAL_EVAL_ATTEMPTS,
     FINAL_PROMPTS_CSV,
     MAX_CYCLES,
     OUTPUT_CSV,
     validate_attack_workflow_models,
 )
 from attack_pipeline.models import call_model
-from attack_pipeline.pipeline import CycleRecord, run_behavior
+from attack_pipeline.pipeline import (
+    CycleRecord,
+    FinalEvalRecord,
+    evaluate_final_prompt,
+    run_behavior,
+)
 
 CSV_COLUMNS = [
     "behavior",
@@ -46,6 +53,19 @@ FINAL_PROMPT_COLUMNS = [
     "final_attack_prompt",
     "final_jailbroken",
     "final_judge_reason",
+    "final_eval_attempts",
+    "final_eval_successes",
+    "final_asr",
+]
+
+FINAL_ASR_COLUMNS = [
+    "behavior",
+    "goal",
+    "attempt",
+    "final_attack_prompt",
+    "target_response",
+    "jailbroken",
+    "judge_reason",
 ]
 
 JUDGE_CSV_COLUMNS = [
@@ -103,13 +123,27 @@ def _record_to_row(record: CycleRecord) -> dict:
     }
 
 
+def _final_eval_to_row(goal: str, record: FinalEvalRecord) -> dict:
+    return {
+        "behavior": record.behavior,
+        "goal": goal,
+        "attempt": record.attempt,
+        "final_attack_prompt": record.attack_prompt,
+        "target_response": record.target_response,
+        "jailbroken": record.jailbroken,
+        "judge_reason": record.judge_reason,
+    }
+
+
 def run_attack_workflow(
     openai_api_key: str,
     model_api_key: str = "",
     behaviors: int = DEFAULT_BEHAVIORS,
     max_cycles: int = MAX_CYCLES,
+    final_eval_attempts: int = FINAL_EVAL_ATTEMPTS,
     output: str = OUTPUT_CSV,
     final_prompts_output: str = FINAL_PROMPTS_CSV,
+    final_asr_output: str = FINAL_ASR_CSV,
 ) -> str:
     """Run the mutating attack pipeline and write CSV output.
 
@@ -117,6 +151,8 @@ def run_attack_workflow(
     """
     if not openai_api_key:
         raise ValueError("openai_api_key is required")
+    if final_eval_attempts < 1:
+        raise ValueError("final_eval_attempts must be >= 1")
     validate_attack_workflow_models()
 
     dataset = jbb.read_dataset()
@@ -129,18 +165,23 @@ def run_attack_workflow(
     )
     print(f"Output -> {output}\\n")
     print(f"Final prompts output -> {final_prompts_output}\\n")
+    print(f"Final ASR output -> {final_asr_output}\\n")
 
     os.makedirs(os.path.dirname(output) or ".", exist_ok=True)
     os.makedirs(os.path.dirname(final_prompts_output) or ".", exist_ok=True)
+    os.makedirs(os.path.dirname(final_asr_output) or ".", exist_ok=True)
 
     with (
         open(output, "w", newline="", encoding="utf-8") as csvfile,
         open(final_prompts_output, "w", newline="", encoding="utf-8") as final_csvfile,
+        open(final_asr_output, "w", newline="", encoding="utf-8") as final_asr_csvfile,
     ):
         writer = csv.DictWriter(csvfile, fieldnames=CSV_COLUMNS)
         final_writer = csv.DictWriter(final_csvfile, fieldnames=FINAL_PROMPT_COLUMNS)
+        final_asr_writer = csv.DictWriter(final_asr_csvfile, fieldnames=FINAL_ASR_COLUMNS)
         writer.writeheader()
         final_writer.writeheader()
+        final_asr_writer.writeheader()
 
         for idx, (behavior, goal) in enumerate(
             zip(selected_behaviors, selected_goals), start=1
@@ -163,6 +204,21 @@ def run_attack_workflow(
             csvfile.flush()
 
             final = records[-1]
+            final_eval_records = evaluate_final_prompt(
+                goal=goal,
+                behavior=behavior,
+                attack_prompt=final.attack_prompt,
+                model_api_key=model_api_key,
+                openai_api_key=openai_api_key,
+                attempts=final_eval_attempts,
+            )
+            final_eval_successes = sum(1 for r in final_eval_records if r.jailbroken)
+            final_asr = final_eval_successes / final_eval_attempts
+
+            for r in final_eval_records:
+                final_asr_writer.writerow(_final_eval_to_row(goal, r))
+            final_asr_csvfile.flush()
+
             final_writer.writerow(
                 {
                     "behavior": behavior,
@@ -171,15 +227,19 @@ def run_attack_workflow(
                     "final_attack_prompt": final.attack_prompt,
                     "final_jailbroken": final.jailbroken,
                     "final_judge_reason": final.judge_reason,
+                    "final_eval_attempts": final_eval_attempts,
+                    "final_eval_successes": final_eval_successes,
+                    "final_asr": final_asr,
                 }
             )
             final_csvfile.flush()
 
             status = "SUCCESS" if final.jailbroken else "failed"
-            print(f"  -> {status} after {len(records)} cycle(s)\\n")
+            print(f"  -> {status} after {len(records)} cycle(s); final ASR={final_asr:.3f}\\n")
 
     print(f"Done. Results saved to {output}")
     print(f"Final prompts saved to {final_prompts_output}")
+    print(f"Final ASR attempts saved to {final_asr_output}")
     return output
 
 

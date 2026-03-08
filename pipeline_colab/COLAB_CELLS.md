@@ -55,20 +55,40 @@ attack_csv = run_attack_workflow(
     openai_api_key=os.environ["OPENAI_API_KEY"],
     behaviors=10,
     max_cycles=3,
+    final_eval_attempts=10,
     output="outputs/attack_results_colab.csv",
+    final_prompts_output="outputs/final_attack_prompts_colab.csv",
+    final_asr_output="outputs/final_prompt_asr_colab.csv",
 )
 
 attack_csv
 ```
 
-## Cell 5: Preview attack output
+## Cell 5: Cycle-level ASR table
 ```python
 import pandas as pd
 
-pd.read_csv("outputs/attack_results_colab.csv").head(20)
+attack_df = pd.read_csv("outputs/attack_results_colab.csv")
+cycle_table = (
+    attack_df.groupby("cycle", as_index=False)
+    .agg(attempts=("jailbroken", "size"), successes=("jailbroken", "sum"))
+)
+cycle_table["asr"] = (cycle_table["successes"] / cycle_table["attempts"]).round(4)
+cycle_table
 ```
 
-## Cell 6: Run judge comparison (optional)
+## Cell 6: Final prompt ASR table
+```python
+import pandas as pd
+
+final_prompts_df = pd.read_csv("outputs/final_attack_prompts_colab.csv")
+final_asr_table = final_prompts_df[
+    ["behavior", "final_eval_attempts", "final_eval_successes", "final_asr"]
+].sort_values("final_asr", ascending=False)
+final_asr_table
+```
+
+## Cell 7: Run judge comparison (optional)
 ```python
 import os
 
@@ -84,11 +104,13 @@ details_csv, summary_csv = run_judge_comparison_workflow(
 (details_csv, summary_csv)
 ```
 
-## Cell 7: Download outputs
+## Cell 8: Download outputs
 ```python
 from google.colab import files
 
 files.download("outputs/attack_results_colab.csv")
+files.download("outputs/final_attack_prompts_colab.csv")
+files.download("outputs/final_prompt_asr_colab.csv")
 # files.download("outputs/judge_comparison_results_colab.csv")
 # files.download("outputs/judge_comparison_results_colab_summary.csv")
 ```
@@ -96,6 +118,6 @@ files.download("outputs/attack_results_colab.csv")
 ## Optional CLI-style cells
 If you prefer script execution instead of function calls:
 ```bash
-!python pipeline_colab/run_attack.py --behaviors 5 --max-cycles 5 --output outputs/my_run.csv
+!python pipeline_colab/run_attack.py --behaviors 5 --max-cycles 5 --final-eval-attempts 10 --output outputs/my_run.csv --final-prompts-output outputs/my_final_prompts.csv --final-asr-output outputs/my_final_asr_attempts.csv
 !python pipeline_colab/run_judge_comparison.py --samples 30 --output outputs/judge_comparison_results.csv
 ```

@@ -7,6 +7,7 @@ FEEDBACK_MODEL = "gpt-4o-mini"
 # Pipeline defaults
 MAX_CYCLES = 3
 DEFAULT_BEHAVIORS = 10  # keep small to limit cost during testing
+FINAL_EVAL_ATTEMPTS = 10
 
 # Generation parameters
 ATTACKER_MAX_TOKENS = 512
@@ -21,6 +22,7 @@ FEEDBACK_TEMPERATURE = 0.7
 # Output
 OUTPUT_CSV = "outputs/attack_results.csv"
 FINAL_PROMPTS_CSV = "outputs/final_attack_prompts.csv"
+FINAL_ASR_CSV = "outputs/final_prompt_asr.csv"
 
 # Prompts
 
