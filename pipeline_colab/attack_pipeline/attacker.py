@@ -19,7 +19,12 @@ _LABEL_PREFIX = re.compile(
 
 
 def _clean_attack_prompt(raw: str, fallback: str) -> str:
-    """Normalize model output and drop obvious scaffold echos."""
+    """Normalize model output and drop obvious scaffold echos.
+
+    The target model must receive ONLY the jailbreak prompt string—never the
+    mutation context (goal, previous prompt, feedback). If the attacker echoes
+    that scaffold, we extract the revised prompt or fall back to previous.
+    """
     text = (raw or "").strip()
     if not text:
         return fallback
@@ -34,22 +39,32 @@ def _clean_attack_prompt(raw: str, fallback: str) -> str:
     text = _LABEL_PREFIX.sub("", text).strip()
     lower = text.lower()
 
-    # If the model echoed our mutation scaffold ("Original goal", "Previous test prompt",
-    # "Feedback …") then try to *extract* just the revised prompt section.
-    if "original goal:" in lower and "previous test prompt:" in lower:
-        # If the model never produced an explicit revised prompt section, discard the
-        # whole scaffold and fall back to the previous prompt.
-        has_revised_label = "revised test prompt:" in lower or "revised prompt:" in lower
-        if not has_revised_label:
-            return fallback
+    # Detect ANY echo of our mutation scaffold (we send "Original goal", "Previous test
+    # prompt", "Feedback on why it failed"). The model may echo "Revised goal" or
+    # "Previous test prompt" etc. If this output contains those markers, we must NOT
+    # send it to the target—extract revised prompt or use fallback.
+    scaffold_markers = (
+        "previous test prompt",
+        "feedback on why it failed",
+        "original goal:",
+        "revised goal:",
+    )
+    looks_like_scaffold = any(m in lower for m in scaffold_markers)
 
-        # Otherwise, keep only the text after the last known "revised" label.
-        for label in ("revised test prompt:", "revised prompt:"):
+    if looks_like_scaffold:
+        # Try to extract only the revised prompt section.
+        revised_labels = ("revised test prompt:", "revised prompt:")
+        for label in revised_labels:
             idx = lower.rfind(label)
             if idx != -1:
-                text = text[idx + len(label) :].strip()
-                lower = text.lower()
+                after = text[idx + len(label) :].strip()
+                # If what follows is still huge and contains scaffold, don't use it.
+                if after and not any(m in after.lower() for m in scaffold_markers):
+                    return after.strip() or fallback
                 break
+        # No clean revised section, or revised section still contained scaffold: do not
+        # send scaffold to target.
+        return fallback
 
     return text.strip() or fallback
 
