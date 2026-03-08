@@ -1,0 +1,6 @@
+# Core pipeline dependencies
+python-dotenv
+litellm
+tenacity
+datasets
+pandas
