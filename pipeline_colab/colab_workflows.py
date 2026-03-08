@@ -38,8 +38,11 @@ from attack_pipeline.pipeline import (
 )
 
 CSV_COLUMNS = [
+    "artifact_method",
+    "artifact_model",
     "behavior",
     "cycle",
+    "seed_attack_prompt",
     "attack_prompt",
     "target_response",
     "jailbroken",
@@ -48,6 +51,9 @@ CSV_COLUMNS = [
 ]
 
 FINAL_PROMPT_COLUMNS = [
+    "artifact_method",
+    "artifact_model",
+    "seed_attack_prompt",
     "behavior",
     "goal",
     "final_cycle",
@@ -60,6 +66,9 @@ FINAL_PROMPT_COLUMNS = [
 ]
 
 FINAL_ASR_COLUMNS = [
+    "artifact_method",
+    "artifact_model",
+    "seed_attack_prompt",
     "behavior",
     "goal",
     "attempt",
@@ -112,10 +121,18 @@ _SAFETY_SYS = (
 )
 
 
-def _record_to_row(record: CycleRecord) -> dict:
+def _record_to_row(
+    record: CycleRecord,
+    seed_attack_prompt: str | None,
+    artifact_method: str | None,
+    artifact_model: str | None,
+) -> dict:
     return {
+        "artifact_method": artifact_method or "",
+        "artifact_model": artifact_model or "",
         "behavior": record.behavior,
         "cycle": record.cycle,
+        "seed_attack_prompt": seed_attack_prompt or "",
         "attack_prompt": record.attack_prompt,
         "target_response": record.target_response,
         "jailbroken": record.jailbroken,
@@ -124,8 +141,17 @@ def _record_to_row(record: CycleRecord) -> dict:
     }
 
 
-def _final_eval_to_row(goal: str, record: FinalEvalRecord) -> dict:
+def _final_eval_to_row(
+    goal: str,
+    record: FinalEvalRecord,
+    seed_attack_prompt: str | None,
+    artifact_method: str | None,
+    artifact_model: str | None,
+) -> dict:
     return {
+        "artifact_method": artifact_method or "",
+        "artifact_model": artifact_model or "",
+        "seed_attack_prompt": seed_attack_prompt or "",
         "behavior": record.behavior,
         "goal": goal,
         "attempt": record.attempt,
@@ -174,6 +200,9 @@ def run_attack_workflow(
     output: str = OUTPUT_CSV,
     final_prompts_output: str = FINAL_PROMPTS_CSV,
     final_asr_output: str = FINAL_ASR_CSV,
+    use_jbb_seeds: bool = False,
+    artifact_method: str = "PAIR",
+    artifact_model_name: str = "vicuna-13b-v1.5",
 ) -> str:
     """Run the mutating attack pipeline and write CSV output.
 
@@ -188,6 +217,25 @@ def run_attack_workflow(
     dataset = jbb.read_dataset()
     selected_behaviors = dataset.behaviors[:behaviors]
     selected_goals = dataset.goals[:behaviors]
+
+    # Optional: seed initial attack prompts from a JBB artifact so we start from
+    # off-the-shelf jailbreak strings instead of generating prompts from scratch.
+    seed_by_behavior: dict[str, str] = {}
+    if use_jbb_seeds:
+        try:
+            artifact = jbb.read_artifact(method=artifact_method, model_name=artifact_model_name)
+            # artifact.jailbreaks is a list of JailbreakInfo with .behavior and .prompt
+            for jb in artifact.jailbreaks:
+                prompt = getattr(jb, "prompt", None)
+                behavior_name = getattr(jb, "behavior", None)
+                if behavior_name and prompt:
+                    seed_by_behavior[str(behavior_name)] = str(prompt)
+        except Exception as exc:
+            print(
+                f"[warning] Failed to load JBB artifact seeds "
+                f"({artifact_method}, {artifact_model_name}): {exc}"
+            )
+            seed_by_behavior = {}
 
     print(
         f"Running pipeline on {len(selected_behaviors)} behavior(s), "
@@ -217,6 +265,7 @@ def run_attack_workflow(
             zip(selected_behaviors, selected_goals), start=1
         ):
             print(f"[{idx}/{len(selected_behaviors)}] {behavior}")
+            seed_attack_prompt = seed_by_behavior.get(behavior) if seed_by_behavior else None
             try:
                 records = run_behavior(
                     goal=goal,
@@ -224,13 +273,21 @@ def run_attack_workflow(
                     model_api_key=model_api_key,
                     openai_api_key=openai_api_key,
                     max_cycles=max_cycles,
+                    initial_attack_prompt=seed_attack_prompt,
                 )
             except Exception as exc:
                 print(f"  [pipeline error, skipping behavior] {exc}")
                 continue
 
             for record in records:
-                writer.writerow(_record_to_row(record))
+                writer.writerow(
+                    _record_to_row(
+                        record,
+                        seed_attack_prompt=seed_attack_prompt,
+                        artifact_method=artifact_method if use_jbb_seeds else "",
+                        artifact_model=artifact_model_name if use_jbb_seeds else "",
+                    )
+                )
                 _print_cycle_prompts(goal=goal, record=record)
             csvfile.flush()
 
@@ -247,11 +304,22 @@ def run_attack_workflow(
             final_asr = final_eval_successes / final_eval_attempts
 
             for r in final_eval_records:
-                final_asr_writer.writerow(_final_eval_to_row(goal, r))
+                final_asr_writer.writerow(
+                    _final_eval_to_row(
+                        goal,
+                        r,
+                        seed_attack_prompt=seed_attack_prompt,
+                        artifact_method=artifact_method if use_jbb_seeds else "",
+                        artifact_model=artifact_model_name if use_jbb_seeds else "",
+                    )
+                )
             final_asr_csvfile.flush()
 
             final_writer.writerow(
                 {
+                    "artifact_method": artifact_method if use_jbb_seeds else "",
+                    "artifact_model": artifact_model_name if use_jbb_seeds else "",
+                    "seed_attack_prompt": seed_attack_prompt or "",
                     "behavior": behavior,
                     "goal": goal,
                     "final_cycle": final.cycle,

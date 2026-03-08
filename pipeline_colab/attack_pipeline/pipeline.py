@@ -47,6 +47,7 @@ def run_behavior(
     model_api_key: str,
     openai_api_key: str,
     max_cycles: int = MAX_CYCLES,
+    initial_attack_prompt: str | None = None,
 ) -> list[CycleRecord]:
     """Run the mutating attack loop for one behavior.
 
@@ -56,11 +57,16 @@ def run_behavior(
     """
     records: list[CycleRecord] = []
 
-    try:
-        attack_prompt = generate_initial_attack(goal, model_api_key)
-    except Exception as exc:
-        print(f"  [attacker error on initial generation] {exc}")
-        attack_prompt = goal
+    # Seed cycle 1 either from a provided jailbreak prompt (e.g., JBB artifact)
+    # or by generating a fresh attack from the attacker model.
+    if initial_attack_prompt is not None:
+        attack_prompt = initial_attack_prompt
+    else:
+        try:
+            attack_prompt = generate_initial_attack(goal, model_api_key)
+        except Exception as exc:
+            print(f"  [attacker error on initial generation] {exc}")
+            attack_prompt = goal
 
     for cycle in range(1, max_cycles + 1):
         print(f"  cycle {cycle}/{max_cycles} …", end=" ", flush=True)
