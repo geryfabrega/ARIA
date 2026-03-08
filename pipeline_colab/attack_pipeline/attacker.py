@@ -30,13 +30,26 @@ def _clean_attack_prompt(raw: str, fallback: str) -> str:
         if "\n" in text:
             text = text.split("\n", 1)[1].strip()
 
-    text = _LABEL_PREFIX.sub("", text)
-
-    # If the model echoed mutation scaffolding, keep prior prompt instead.
+    # Drop common leading labels like "Attack prompt:".
+    text = _LABEL_PREFIX.sub("", text).strip()
     lower = text.lower()
-    echoed_scaffold = "original goal:" in lower and "previous test prompt:" in lower
-    if echoed_scaffold and "revised test prompt:" not in lower and "revised prompt:" not in lower:
-        return fallback
+
+    # If the model echoed our mutation scaffold ("Original goal", "Previous test prompt",
+    # "Feedback …") then try to *extract* just the revised prompt section.
+    if "original goal:" in lower and "previous test prompt:" in lower:
+        # If the model never produced an explicit revised prompt section, discard the
+        # whole scaffold and fall back to the previous prompt.
+        has_revised_label = "revised test prompt:" in lower or "revised prompt:" in lower
+        if not has_revised_label:
+            return fallback
+
+        # Otherwise, keep only the text after the last known "revised" label.
+        for label in ("revised test prompt:", "revised prompt:"):
+            idx = lower.rfind(label)
+            if idx != -1:
+                text = text[idx + len(label) :].strip()
+                lower = text.lower()
+                break
 
     return text.strip() or fallback
 
