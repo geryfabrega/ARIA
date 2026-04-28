@@ -83,6 +83,25 @@ def _clean_attack_prompt(raw: str, fallback: str) -> str:
             return match.group(1).strip()
         return fallback
 
+    # Paraphrase instruction echo: we sent "Reword the following prompt... Output nothing
+    # but the new prompt:\n\n" to the attacker; sometimes it echoes that back. The target
+    # must never see our instruction—only the actual prompt.
+    if "reword the following prompt" in lower or "output nothing but the new prompt" in lower:
+        for marker in (
+            "output nothing but the new prompt:\n\n",
+            "output nothing but the new prompt:\n",
+            "new prompt:\n\n",
+            "new prompt:\n",
+        ):
+            idx = lower.find(marker)
+            if idx != -1:
+                text = text[idx + len(marker) :].strip()
+                if text and len(text) > 20:
+                    return text
+                break
+        if "\n\n" in text and len(text.split("\n\n", 1)[1].strip()) > 20:
+            text = text.split("\n\n", 1)[1].strip()
+
     return text.strip() or fallback
 
 
